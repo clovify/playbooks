@@ -1,0 +1,21 @@
+---
+- name: Calculating Gatling version
+  set_fact:
+    gatling_version:     "{{ gatling.version | calculate( gatling.latest ) }}"
+- set_fact:
+    gatling_home:        "{{ gatling.home }}/gatling-charts-highcharts-bundle-{{ gatling_version }}"
+- set_fact:
+    gatling_simulations: "{{ gatling_home }}/user-files/simulations"
+
+- include: "{{ common.utils.download }}"
+  vars:
+    title:   Gatling
+    url:     "{{ gatling.url     | tokens({ 'version': gatling_version }) }}"
+    archive: "{{ gatling.archive | tokens({ 'version': gatling_version }) }}"
+    home:    "{{ gatling.home }}"
+    env:     "{{ gatling_env }}"
+    tests:
+      - { run: "gatling.sh --help", expect: "Usage: compiler" }
+    cleanup:
+      - rm   -rf "{{ gatling_simulations }}"
+      - mkdir -p "{{ gatling_simulations }}"

@@ -1,12 +1,30 @@
 ---
 artifactory: {
-  version: latest, # 3.4.2 or latest - https://dl.bintray.com/jfrog/artifactory/
+  version: latest, # 3.4.2, latest - https://dl.bintray.com/jfrog/artifactory/
   port:    8080,
+  timeout: 60,         # in seconds
+  run:     standalone, # standalone, war
   latest: {
-    command: "curl -s '{{ common.bintray }}/jfrog/artifactory/' | grep '<pre>' | grep 'artifactory-' | sed -r 's/<[^>]+>//g' | sed 's/artifactory-//' | sed 's/\\.zip$//' | tail -1",
+    command: "curl -s '{{ common.urls.bintray }}/jfrog/artifactory/' | grep '<pre>' | grep 'artifactory-' | sed -r 's/<[^>]+>//g' | sed 's/artifactory-//' | sed 's/\\.zip$//' | tail -1",
     pattern: '^\d+\.\d+\.\d+$'
   },
-  url:     '{{ common.bintray }}/jfrog/artifactory/artifactory-<version>.zip',
-  archive: /opt/artifactory-<version>.zip,
-  home:    /opt/artifactory
+  standalone: {
+    url:     '{{ common.urls.bintray }}/jfrog/artifactory/artifactory-<version>.zip',
+    archive: /opt/artifactory-<version>.zip,
+    home:    /opt/artifactory
+  },
+  war: {
+    url:     '{{ common.urls.jfrog }}/artifactory/libs-releases/org/artifactory/artifactory-web-war/<version>/artifactory-web-war-<version>.war',
+    archive: /opt/artifactory-<version>.war,
+    home:    artifactory
+  },
+  wait: [
+    { path: /artifactory/api/system/ping, content: OK }
+  ],
+  verify: [
+    { path: /artifactory/api/application.wadl,         content: </application> },
+    { path: '/artifactory/api/search/artifact?name=x', content: results },
+    { path: /artifactory/webapp/home.html,             content: Artifactory },
+    { path: /artifactory/webapp/browserepo.html,       content: Artifactory }
+  ]
 }

@@ -1,0 +1,104 @@
+---
+# ===================================================================================================
+# Downloads and unpacks an archive titled {{ title }}
+# ===================================================================================================
+# - Downloads {{ url }} to {{ archive }}
+# - Unpacks {{ archive }} to {{ home }}
+#   {{ home }} is deleted before unpack operation, unless {{ clean }} is False
+# - Generates {{ configs }} and {{ env }} environment variables file
+# - Runs {{ tests }} and {{ cleanup }} commands, with {{ env }} environment
+# ===================================================================================================
+# - Required variables: title. Others are optional.
+# ===================================================================================================
+- debug: msg="title = '{{ title }}'"
+
+- set_fact:
+    download:   "{{ (( url is defined ) and ( archive is defined )) | bool }}"
+    unpack:     "{{ (( url is defined ) and ( archive is defined ) and ( home is defined )) | bool }}"
+- set_fact:
+    clean_home: "{{ ( unpack | bool and ( clean | default(True))) | bool }}"
+
+# {{ env_file }} is a file containing service env variables, loaded by upstart script
+# {{ run_env }}  is an environment (dictionary) used when running {{ tests }} and {{ cleanup }} commands
+- set_fact:
+    env_file: "{{ ubuntu.envs_dir }}/{{ title.lower() }}.sh"
+    run_env:  "{{ env | default({}) | expand_path( ansible_env ) }}"
+  when: env is defined
+
+- debug: var=url
+- debug: var=archive
+- debug: var=home
+- debug: var=download
+- debug: var=unpack
+- debug: var=clean_home
+- debug: var=env
+- debug: var=env_file
+- debug: var=run_env
+
+- debug: msg="Downloading {{ title }} - '{{ url }}' => '{{ archive }}'"
+  when:  download and ( not unpack )
+
+- debug: msg="Downloading and unpacking {{ title }} - '{{ url }}' => '{{ archive }}' => '{{ home }}'"
+  when:  unpack
+
+- name: Downloading {{ title }}
+  get_url:
+    url:  "{{ url }}"
+    dest: "{{ archive }}"
+  when: download
+
+- debug: msg="Deleting '{{ home }}'!"
+  when:  clean_home
+
+- file: path={{ home }} state=absent
+  when: clean_home
+
+- file: path={{ home }} state=directory
+  when: home is defined
+
+- name: Unpacking {{ title }}
+  unarchive:
+    src:  "{{ archive }}"
+    dest: "{{ home }}"
+    copy: false
+  when: unpack
+
+- shell: mkdir -p "$( dirname {{ item.to }} )"
+  with_items:
+    - "{{ configs }}"
+  when: configs is defined
+
+- name: Generating {{ title }} configs
+  template:
+    src:  "{{ playbook_dir }}/roles/{{ item.role | default( service ) }}/templates/{{ item.from  }}"
+    dest: "{{ item.to }}"
+  with_items:
+    - "{{ configs }}"
+  when: configs is defined
+
+- file: path="{{ env_file }}" state=absent
+  when: env is defined
+
+- name: Generating {{ title }} environment variables file
+  lineinfile:
+    dest:    "{{ env_file }}"
+    create:  yes
+    line:    'export {{ item.key }}="{{ item.value }}"'
+  with_dict: env | default({})
+  when:      env is defined
+
+- name:        Running {{ title }} tests
+  command:     "{{ ubuntu.bash }} -c '{{ item.run }} 2>&1'"
+  environment: "{{ run_env }}"
+  register:    test_out
+  failed_when: item.expect not in test_out.stdout
+  with_items:
+    - "{{ tests }}"
+  when: tests is defined
+
+- name:        Running {{ title }} cleanup commands
+  command:     "{{ ubuntu.bash }} -c '{{ item }} 2>&1'"
+  environment: "{{ run_env }}"
+  with_items:
+    - "{{ cleanup }}"
+  when: cleanup is defined

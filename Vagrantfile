@@ -1,42 +1,65 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
 VAGRANTFILE_API_VERSION = '2'
-CPUS                    = '2'
-MEMORY                  = '1024'
-VAGRANT_DOMAIN          = 'vm'
-ZOOKEEPER_PORT          = 2181
-HELIOS_MASTER_PORT      = 5801
-ETCD_PORT               = 4001
-WEB_PORT                = 8080
-EXHIBITOR_PORT          = WEB_PORT
-ARTIFACTORY_PORT        = WEB_PORT
-DNS_PORT                = 53
-HELIOS_PROPERTIES       = { helios_master:      "helios-master.#{ VAGRANT_DOMAIN }",
-                            helios_master_port: HELIOS_MASTER_PORT,
-                            zookeeper_port:     ZOOKEEPER_PORT,
-                            etcd_port:          ETCD_PORT,
-                            exhibitor_port:     EXHIBITOR_PORT,
-                            domain:             VAGRANT_DOMAIN }
 
-BOXES = {
-  # Name of the box (and corresponding playbook) => { playbook's extra variables, :ports is respected by Vagrant }
-  'helios-master'  => HELIOS_PROPERTIES.merge(
-    ports: [ DNS_PORT, ZOOKEEPER_PORT, HELIOS_MASTER_PORT, ETCD_PORT, EXHIBITOR_PORT ]),
+def env( name )
+  ENV[ name ] or raise "Undefined environment variable '#{ name }'!"
+end
+
+CPUS               = 2
+MEMORY             = 512
+VAGRANT_DOMAIN     = 'vm'
+ZOOKEEPER_PORT     = 2181
+HELIOS_MASTER_PORT = 5801
+ETCD_PORT          = 4001
+WEB_PORT           = 8080
+EXHIBITOR_PORT     = WEB_PORT
+ARTIFACTORY_PORT   = WEB_PORT
+NEXUS_PORT         = WEB_PORT
+DNS_PORT           = 53
+VERBOSE            = '' # Ansible verbosity level: '', 'v', 'vv', 'vvv', 'vvvv'
+HELIOS_PROPERTIES  = { helios_master:      "helios-master.#{ VAGRANT_DOMAIN }",
+                       helios_master_port: HELIOS_MASTER_PORT,
+                       zookeeper_port:     ZOOKEEPER_PORT,
+                       etcd_port:          ETCD_PORT,
+                       exhibitor_port:     EXHIBITOR_PORT,
+                       skydns_domain:      VAGRANT_DOMAIN }
+HELIOS_PORTS       = { ports: [ DNS_PORT, ZOOKEEPER_PORT, HELIOS_MASTER_PORT, ETCD_PORT, EXHIBITOR_PORT ] }
+
+VB_BOXES = {
+  'helios-master'  => HELIOS_PROPERTIES.merge( HELIOS_PORTS ),
   'helios-agent'   => HELIOS_PROPERTIES,
-  artifactory:          { artifactory_port: ARTIFACTORY_PORT, ports: [ ARTIFACTORY_PORT ]},
-  # packer:             {},
-  # ruby:               {},
-  # jenkins:            { ports: [ WEB_PORT ]},
-  # asgard:             { ports: [ WEB_PORT ]},
-  # mysql:              { ports: [ 3306 ]},
-  # docker:             { ports: [ 3000 ], app_name: 'tsa',
-  #                                        image:    'evgenyg/todo-sample-app',
-  #                                        env_file: '/playbooks/todo-sample-app.env' }
+  helios:             HELIOS_PROPERTIES.merge( HELIOS_PORTS ).merge( helios_master: "helios.#{ VAGRANT_DOMAIN }" ),
+  artifactory:   { memory: 1024, artifactory_port: ARTIFACTORY_PORT, ports: [ ARTIFACTORY_PORT ]},
+  nexus:         { memory: 1024, nexus_port:       NEXUS_PORT,       ports: [ NEXUS_PORT ]},
+  'test-repo' => { memory: 1024, report_dir: '/vagrant',
+                   repo_name: 'Artifactory', repo: "http://artifactory.#{ VAGRANT_DOMAIN }:#{ ARTIFACTORY_PORT }/artifactory/repo/"
+                  #  repo_name: 'Nexus',       repo: "http://nexus.#{ VAGRANT_DOMAIN }:#{ NEXUS_PORT }/nexus/content/repositories/central/"
+                 },
 }
 
-Vagrant.require_version '>= 1.6.5'
+AWS_BOXES = {
+
+ # https://github.com/mitchellh/vagrant-aws
+ # vagrant plugin install vagrant-aws
+ # https://gist.github.com/tknerr/5753319
+
+  # 'artifactory-aws' => { instance_type: 't2.medium', artifactory_port: ARTIFACTORY_PORT, playbook: 'artifactory-ubuntu' },
+  # 'nexus-aws'       => { instance_type: 't2.medium', nexus_port:       NEXUS_PORT,       playbook: 'nexus-ubuntu' },
+  # 'test-repo-aws'   => { playbook:      'test-repo-ubuntu',
+  #                        instance_type: 't2.small',
+  #                        report_dir:    '/opt',
+  #                        repo_name:     'Artifactory',
+  #                        repo:          "http://#{ env( 'ARTIFACTORY_HOST' ) }:#{ ARTIFACTORY_PORT }/artifactory/repo/" },
+  # 'test-repo-aws'    => { playbook:      'test-repo-ubuntu',
+  #                         instance_type: 't2.small',
+  #                         report_dir:    '/opt',
+  #                         repo_name:     'Nexus',
+  #                         repo:          "http://#{ env( 'NEXUS_HOST' ) }:#{ NEXUS_PORT }/nexus/content/repositories/central/" }
+}
+
+Vagrant.require_version '>= 1.7.0'
 Vagrant.configure( VAGRANTFILE_API_VERSION ) do | config |
 
   # https://github.com/phinze/landrush
@@ -46,7 +69,7 @@ Vagrant.configure( VAGRANTFILE_API_VERSION ) do | config |
   config.landrush.enabled = true
   config.landrush.tld     = VAGRANT_DOMAIN
 
-  BOXES.each_pair { | box, variables |
+  VB_BOXES.each_pair { | box, variables |
 
     box_name = "#{ box }.#{ VAGRANT_DOMAIN }"
 
@@ -61,21 +84,62 @@ Vagrant.configure( VAGRANTFILE_API_VERSION ) do | config |
         b.vm.network 'forwarded_port', guest: port, host: port, auto_correct: true
       }
 
-      config.vm.provider 'virtualbox' do | vb |
+      b.vm.provider :virtualbox do | vb |
         vb.gui  = false
         vb.name = box_name
         # https://www.virtualbox.org/manual/ch08.html
-        vb.customize [ 'modifyvm', :id, '--memory', MEMORY, '--cpus', CPUS ]
+        vb.customize [ 'modifyvm', :id,
+                       '--memory', variables[ :memory ] || MEMORY,
+                       '--cpus',   variables[ :cpus ]   || CPUS ]
       end
 
-      config.vm.provision 'ansible' do | ansible |
-        # ansible.verbose  = 'vv'
-        ansible.playbook   = "playbooks/#{ variables[:playbook] || "#{ box }-ubuntu" }.yml"
+      b.vm.provision :ansible do | ansible |
+        ansible.verbose    = VERBOSE if VERBOSE != ''
+        ansible.playbook   = "playbooks/#{ variables[ :playbook ] || "#{ box }-ubuntu" }.yml"
         ansible.extra_vars = variables.merge({
           # Uncomment and set to true to forcefully update all packages
           # Uncomment and set to false to disable periodic run
           # Otherwise (when commented out) packages are updated automatically once a day
           # periodic: true
+          # periodic: false
+        })
+      end
+    end
+  }
+
+  AWS_BOXES.each_pair { | box_name, variables |
+
+    config.vm.define box_name do | b |
+
+      b.vm.synced_folder 'playbooks', '/playbooks'
+
+      b.vm.provider :aws do | aws, override |
+        override.vm.box               = 'aws-dummy'
+        override.vm.box_url           = 'https://github.com/mitchellh/vagrant-aws/raw/master/dummy.box'
+        override.ssh.username         = env('AWS_SSH_USER')
+        override.ssh.private_key_path = env('AWS_SSH_PRIVATE_KEY')
+
+        aws.access_key_id       = env('AWS_ACCESS_KEY_ID')
+        aws.ami                 = env('AWS_AMI')
+        aws.instance_type       = variables[ :instance_type ] || env('AWS_INSTANCE_TYPE')
+        aws.keypair_name        = env('AWS_KEYPAIR_NAME')
+        aws.region              = env('AWS_REGION')
+        aws.secret_access_key   = env('AWS_SECRET_ACCESS_KEY')
+        # aws.security_groups     = [ env('AWS_SECURITY_GROUP') ]
+        aws.subnet_id           = env('AWS_SUBNET_ID')
+        aws.associate_public_ip = true
+        aws.tags                = { Name: box_name }
+      end
+
+      b.vm.provision 'ansible' do | ansible |
+        ansible.verbose    = VERBOSE if VERBOSE != ''
+        ansible.playbook   = "playbooks/#{ variables[ :playbook ] || "#{ box_name }-ubuntu" }.yml"
+        ansible.extra_vars = variables.merge({
+          # Uncomment and set to true to forcefully update all packages
+          # Uncomment and set to false to disable periodic run
+          # Otherwise (when commented out) packages are updated automatically once a day
+          # periodic: true
+          # periodic: false
         })
       end
     end

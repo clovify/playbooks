@@ -1,66 +1,31 @@
-<!-- [![Build Status](https://api.shippable.com/projects/5416fa1e50f3833e055aa2a8/badge?branchName=ship)](https://app.shippable.com/projects/5416fa1e50f3833e055aa2a8) -->
-
 #### Summary
 
-This repo contains **Ansible** [Playbooks](https://github.com/evgeny-goldin/playbooks/tree/master/playbooks) and [Roles](https://github.com/evgeny-goldin/playbooks/tree/master/playbooks/roles) for installing the following packages on Ubuntu:
+This repo contains **Ansible** [Playbooks](https://github.com/evgeny-goldin/playbooks/tree/master/playbooks) and [Roles](https://github.com/evgeny-goldin/playbooks/tree/master/playbooks/roles) for installing the following tools on Ubuntu:
 
 * [Ansible](http://www.ansible.com/)
+* [Artifactory](http://www.jfrog.com/artifactory/) _(standalone or Tomcat)_
 * [Asgard](https://github.com/Netflix/asgard)
 * [Docker](https://www.docker.com/)
 * [Exhibitor](https://github.com/Netflix/exhibitor)
 * [etcd](https://github.com/coreos/etcd)
+* [Gatling](http://gatling.io/)
+* [Gradle](https://www.gradle.org/)
+* [Groovy](http://groovy.codehaus.org/)
 * [Go](https://golang.org/)
-* [Helios](https://github.com/spotify/helios)
-* [Java](http://www.oracle.com/technetwork/java/index.html)
-* [Jenkins](http://jenkins-ci.org/)
-* [MySQL](http://www.mysql.com/)
-* [Node.js](http://nodejs.org/)
-* [Packer](http://www.packer.io/)
+* [Helios](https://github.com/spotify/helios) _(master + agent or a single instance)_
+* [Java](http://www.oracle.com/technetwork/java/index.html) _(Oracle JRE, Oracle JDK, DefaultJDK)_
+* [Jenkins](https://jenkins-ci.org/)
+* [MySQL](https://www.mysql.com/)
+* [Nexus](http://www.sonatype.org/nexus/) _(standalone or Tomcat)_
+* [Node.js](https://nodejs.org/)
+* [Packer](https://www.packer.io/)
 * [Ruby](https://www.ruby-lang.org/en/)
+* [Scala](http://www.scala-lang.org/)
 * [SkyDNS](https://github.com/skynetservices/skydns)
-* [Vagrant](http://www.vagrantup.com/)
+* [Tomcat](https://tomcat.apache.org/)
+* [Vagrant](https://www.vagrantup.com/)
 * [VirtualBox](https://www.virtualbox.org/)
 * [ZooKeeper](https://zookeeper.apache.org/)
-
-#### Usage
-
-* `<box>` is one of:
-
-    * `asgard`
-    * `docker`
-    * `helios-master`
-    * `helios-agent-1`
-    * `jenkins`
-    * `mysql`
-    * `packer`
-    * `ruby`
-    
-
-* You can create Ubuntu VMs if **Vagrant** and **VirtualBox** are installed:
-
-  * `vagrant up <box>`
-
-  All boxes come with Ansible installed so you can re-run the playbook from within a box:
-
-  * `vagrant ssh <box>`
-  * `ansible-playbook /playbooks/<box>-ubuntu.yml -s -c local`
-
-#### Playbooks
-
-* [`"asgard"`](https://github.com/evgeny-goldin/playbooks/blob/master/playbooks/asgard-ubuntu.yml) playbook installs Java and runs Asgard as an `"asgard"` service.
-
-* [`"docker"`](https://github.com/evgeny-goldin/playbooks/blob/master/playbooks/docker-ubuntu.yml) playbook installs Docker.
-
-* [`"jenkins"`](https://github.com/evgeny-goldin/playbooks/blob/master/playbooks/jenkins-ubuntu.yml) playbook installs Java, Node.js, Npm, Grunt, Bower and Jenkins running as a `"jenkins"` service. Jenkins plugins to install are [configurable](https://github.com/evgeny-goldin/playbooks/blob/master/playbooks/roles/jenkins/vars/main.yml).
-
-* [`"mysql"`](https://github.com/evgeny-goldin/playbooks/blob/master/playbooks/mysql-ubuntu.yml) playbook installs MySQL 5.6 running as `"mysql"` service accepting any remote connections. User is "root" with an empty password.
-
-* [`"packer"`](https://github.com/evgeny-goldin/playbooks/blob/master/playbooks/packer-ubuntu.yml) playbook installs Docker, Vagrant, VirtualBox, Ruby and Packer.
-
-* [`"ruby"`](https://github.com/evgeny-goldin/playbooks/blob/master/playbooks/ruby-ubuntu.yml) playbook installs Ruby.
-
-* Packages installed are usually of the latest version, review each role's `"vars/main.yml"` for fine-tuning. Most roles also allow explicit versioning of the package installed.
-
 
 #### Docker
 

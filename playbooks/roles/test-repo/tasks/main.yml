@@ -1,0 +1,26 @@
+---
+- debug: msg="Testing {{ repo_name }} repo {{ repo }}"
+
+- name: Creating directories
+  file: path={{ item }} state=directory
+  with_items:
+    - "{{ test_repo.artifacts }}"
+    - "{{ gatling_simulations }}"
+    - "{{ report_dir }}"
+
+- name: Copying artifacts files
+  copy:
+    src:  "{{ item.value.artifacts }}"
+    dest: "{{ test_repo.artifacts }}/{{ item.value.artifacts }}"
+  with_dict: test_repo.simulations
+
+- name: Generating simulations
+  template:
+    src:  Simulation.scala
+    dest: "{{ gatling_simulations }}/{{ item.key }}.scala"
+  with_dict: test_repo.simulations
+
+- name: Running simulations
+  command: gatling.sh -m --output-name '{{ repo_name }}{{ item.key }}' --simulation '{{ item.key }}' --results-folder '{{ report_dir }}'
+  environment: "{{ gatling_env | expand_path( ansible_env ) }}"
+  with_dict: test_repo.simulations

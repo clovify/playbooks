@@ -1,0 +1,56 @@
+---
+# When this role is imported - we need to explicitly include our own vars
+- include_vars: "{{ common.vars.exhibitor }}"
+
+- name: Calculating Exhibitor version
+  set_fact:
+    exhibitor_version: "{{ exhibitor_version | default( exhibitor.version | calculate( exhibitor.latest )) }}"
+- set_fact:
+    exhibitor_port:    "{{ exhibitor_port | default( exhibitor.port ) }}"
+    maven_repo:        "{{ maven_repo     | default( exhibitor.maven_repo )}}"
+    exhibitor_jar:     "{{ exhibitor.home }}/build/libs/exhibitor-{{ exhibitor_version }}.jar"
+
+- stat:     path={{ exhibitor_jar }}
+  register: exhibitor_jar_stat
+- set_fact: exhibitor_jar_missing="{{ not exhibitor_jar_stat.stat.exists | bool }}"
+- debug:    var=exhibitor_jar_missing
+
+- file: path={{ exhibitor.home }} state=directory
+- name: Writing Exhibitor build file
+  template:
+    src:  build.gradle
+    dest: "{{ exhibitor.home }}/build.gradle"
+  when: exhibitor_jar_missing
+
+- debug: msg="Building Exhibitor standalone using '{{ maven_repo }}' repo"
+- name:    Building Exhibitor standalone
+  command: gradle clean jar
+  environment: "{{ gradle_env | expand_path( ansible_env ) }}"
+  args:
+    chdir: "{{ exhibitor.home }}"
+  when: exhibitor_jar_missing
+
+- name:     Running Exhibitor standalone help
+  command:  java -jar '{{ exhibitor_jar }}' --help
+  register: exhibitor_help_out
+
+- name:  Verifying Exhibitor standalone help
+  assert:
+    that:
+      - "'Exhibitor v{{ exhibitor_version }}' in exhibitor_help_out.stdout"
+      - "'Print this help'                    in exhibitor_help_out.stdout"
+      - "'Default Property Names'             in exhibitor_help_out.stdout"
+
+- include: "{{ common.utils.service }}"
+  vars:
+    title:   Exhibitor
+    service: exhibitor
+    command: "java -jar '{{ exhibitor_jar }}' -c file --port {{ exhibitor_port }}"
+    port:    "{{ exhibitor_port }}"
+    timeout: 10
+    verify:
+      - { status: 404 }
+      - { path: /exhibitor, status: 404 }
+      - { path: /exhibitor/v1/ui/, status: 405 }
+      - { path: /exhibitor/v1/ui/index.html, content: Exhibitor for ZooKeeper }
+  when: exhibitor_service | default(True)

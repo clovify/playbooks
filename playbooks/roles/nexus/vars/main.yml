@@ -1,0 +1,25 @@
+---
+nexus: {
+  version: '2.11.1-01',
+  port:    8080,
+  timeout: 120,        # in seconds
+  run:     standalone, # standalone, war
+  standalone: {
+    url:     'https://sonatype-download.global.ssl.fastly.net/nexus/oss/nexus-<version>-bundle.tar.gz',
+    archive: /opt/nexus-<version>.tar.gz,
+    home:    /opt/nexus
+  },
+  war: {
+    url:     '{{ common.urls.jcenter }}/org/sonatype/nexus/nexus-webapp/<version>/nexus-webapp-<version>.war',
+    archive: /opt/nexus-<version>.war,
+    home:    nexus
+  },
+  wait: [
+    { path: /nexus, content: nexusVersion= }
+  ],
+  verify: [
+    { path: /nexus, content: Sonatype Nexus },
+    { path: /nexus, content: Loading Nexus UI },
+    { path: /nexus/service/local/attributes, status: 401 }
+  ]
+}

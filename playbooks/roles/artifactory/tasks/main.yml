@@ -4,51 +4,50 @@
     artifactory_version: "{{ artifactory.version | calculate( artifactory.latest ) }}"
 - set_fact:
     artifactory_port:    "{{ artifactory_port    | default( artifactory.port ) }}"
-    artifactory_home:    "{{ artifactory.home }}/artifactory-{{ artifactory_version }}"
+
+  # -----------------------
+  # Standalone
+  # -----------------------
+
 - set_fact:
-    artifactory_config:  "{{ artifactory_home }}/tomcat/conf/server.xml"
-    artifactory_sh:      "{{ artifactory_home }}/bin/artifactory.sh"
+    artifactory_home:    "{{ artifactory.standalone.home }}/artifactory-{{ artifactory_version }}"
+  when: artifactory.run == 'standalone'
 
-- name: Stopping Artifactory service
-  service: name=artifactory state=stopped
-  ignore_errors: yes
-
-- include: "{{ common.download_unpack }}"
+- include: "{{ common.utils.service }}"
   vars:
-    name:    Artifactory
-    url:     "{{ artifactory.url     | tokens({ 'version': artifactory_version }) }}"
-    archive: "{{ artifactory.archive | tokens({ 'version': artifactory_version }) }}"
-    home:    "{{ artifactory.home }}"
+    service: artifactory
+    title:   Artifactory
+    url:     "{{ artifactory.standalone.url     | tokens({ 'version': artifactory_version }) }}"
+    archive: "{{ artifactory.standalone.archive | tokens({ 'version': artifactory_version }) }}"
+    home:    "{{ artifactory.standalone.home }}"
+    configs:
+      - { from: server.xml, to: "{{ artifactory_home }}/tomcat/conf/server.xml" }
+    command: "{{ artifactory_home }}/bin/artifactory.sh"
+    port:    "{{ artifactory_port }}"
+    timeout: "{{ artifactory.timeout }}"
+    wait:    "{{ artifactory.wait }}"
+    verify:  "{{ artifactory.verify }}"
+  when: artifactory.run == 'standalone'
 
-- name: Configuring Artifactory port
-  lineinfile:
-    dest:   "{{ artifactory_config }}"
-    line:   '        <Connector port="{{ artifactory_port }}"/>'
-    regexp: '<Connector port="\d+?"/>'
+  # -----------------------
+  # War
+  # -----------------------
 
-- name: Generating Artifactory upstart script
-  template:
-    src:  artifactory-upstart
-    dest: "{{ ubuntu.init_dir }}/artifactory.conf"
+- include: "{{ common.roles.tomcat }}"
+  vars:
+    tomcat_port: "{{ artifactory_port }}"
+  when: artifactory.run == 'war'
 
-- name: Starting Artifactory service
-  service: name=artifactory state=started enabled=yes
-
-- name: Verifying Artifactory endpoint
-  wait_for: port={{ artifactory_port }} timeout=30
-
-- name:     Waiting for Artifactory to start
-  command:  curl http://{{ common.net.localhost }}:{{ artifactory_port }}/artifactory/api/system/ping
-  register: ping_result
-  until:    ping_result.stdout == 'OK'
-  retries:  20
-  delay:    3
-
-- name: Verifying Artifactory HTTP endpoints
-  uri:  url="http://{{ common.net.localhost }}:{{ artifactory_port }}{{ item.path }}"
-  with_items:
-    - { path: '' }
-    - { path: '/artifactory/api/application.wadl' }
-    - { path: '/artifactory/api/system/ping' }
-    - { path: '/artifactory/webapp/home.html' }
-    - { path: '/artifactory/webapp/browserepo.html' }
+- include: "{{ common.utils.service }}"
+  vars:
+    service: artifactory
+    title:   Artifactory
+    url:     "{{ artifactory.war.url     | tokens({ 'version': artifactory_version }) }}"
+    archive: "{{ artifactory.war.archive | tokens({ 'version': artifactory_version }) }}"
+    home:    "{{ tomcat_webapps }}/{{ artifactory.war.home }}"
+    command: "{{ tomcat_run  }}"
+    port:    "{{ artifactory_port }}"
+    timeout: "{{ artifactory.timeout }}"
+    wait:    "{{ artifactory.wait }}"
+    verify:  "{{ artifactory.verify }}"
+  when: artifactory.run == 'war'

@@ -1,0 +1,34 @@
+---
+# ===================================================================================================
+# Downloads and unpacks an archive, installs, and starts a service {{ service }}, titled {{ title }}
+# ===================================================================================================
+# - Runs download.yml
+# - Creates an upstart script to run {{ command }} as service {{ service }} and starts it
+#   service started logs to /var/log/{{ service }}.log
+# - Runs verify.yml
+# ===================================================================================================
+# - Required variables are: title, service, command. Others are optional.
+# ===================================================================================================
+
+- debug: msg="title = '{{ title }}'"
+- debug: msg="service = '{{ service }}'"
+- debug: msg="command = '{{ command }}'"
+
+- include: download.yml
+
+- set_fact:
+    upstart_script: "{{ ubuntu.init_dir }}/{{ service }}.conf"
+
+- debug: msg="Starting {{ title }} service '{{ service }}' with '{{ command }}' in '{{ upstart_script }}'"
+
+- name: Generating {{ title }} upstart script
+  template:
+    src:  "{{ playbook_dir }}/utils/templates/upstart"
+    dest: "{{ upstart_script }}"
+
+- name:    Restarting {{ title }} service
+  service: name={{ service }} state=restarted enabled=yes
+- pause:   seconds=3
+
+- include: verify.yml
+  when:    port is defined

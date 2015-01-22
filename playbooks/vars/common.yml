@@ -15,13 +15,31 @@ common: {
     public_dns: "8.8.8.8:53,8.8.4.4:53",
   },
 
-  github:  'https://github.com',
-  jcenter: 'https://jcenter.bintray.com',
-  bintray: 'https://dl.bintray.com',
+  urls: {
+    github:   'https://github.com',
+    jcenter:  'https://jcenter.bintray.com',
+    bintray:  'https://dl.bintray.com',
+    jfrog:    'https://repo.jfrog.org',
+    gradle:   'https://www.gradle.org',
+    scala:    'http://www.scala-lang.org'
+  },
 
-  download_unpack: "{{ playbook_dir }}/roles/download-unpack.yml",
-  mkdir:           "{{ playbook_dir }}/roles/mkdir.yml",
+  utils: {
+    download: "{{ playbook_dir }}/utils/download.yml",
+    mkdir:    "{{ playbook_dir }}/utils/mkdir.yml",
+    service:  "{{ playbook_dir }}/utils/service.yml",
+    verify:   "{{ playbook_dir }}/utils/verify.yml"
+  },
 
-  # Whether roles should start services installed
-  start_service: true
+  vars: {
+    tomcat:    "{{ playbook_dir }}/roles/tomcat/vars/main.yml",
+    exhibitor: "{{ playbook_dir }}/roles/exhibitor/vars/main.yml"
+  },
+
+  roles: {
+    tomcat:    "{{ playbook_dir }}/roles/tomcat/tasks/main.yml",
+    exhibitor: "{{ playbook_dir }}/roles/exhibitor/tasks/main.yml",
+    gradle:    "{{ playbook_dir }}/roles/gradle/tasks/main.yml",
+    register:  "{{ playbook_dir }}/roles/skydns/register-host.yml"
+  }
 }

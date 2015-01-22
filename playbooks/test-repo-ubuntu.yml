@@ -1,0 +1,13 @@
+---
+- name:  Repo Test
+  hosts: all
+  sudo:  yes
+
+  vars_files:
+    - vars/common.yml
+    - vars/{{ ansible_distribution }}.yml
+
+  roles:
+    - { role: run-before, period: daily }
+    - test-repo
+    - run-after

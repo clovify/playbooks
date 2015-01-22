@@ -1,6 +1,6 @@
 ---
 ubuntu: {
-  apt_repo:     ubuntu.mirror.su.se, # http://mirrors.ubuntu.com/mirrors.txt
+  apt_repo:     'http://ubuntu.mirror.su.se/ubuntu', # http://mirrors.ubuntu.com/mirrors.txt
   root_home:    /root,
   home_dir:     /home,
   bash:         /bin/bash,
@@ -9,7 +9,6 @@ ubuntu: {
   env_file:     /etc/environment,
   init_dir:     /etc/init,
   envs_dir:     /etc/profile.d, # http://goo.gl/ksHX6N
-  bin_dir:      /usr/bin,
   local_dir:    /usr/local,
   sudoers:      /etc/sudoers,
   sources_list: /etc/apt/sources.list,
